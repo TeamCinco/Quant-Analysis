@@ -1,3 +1,5 @@
+# COPY OF STDstrat2.py except it accomadates more extremely volitile stocks (with a slight negative pull down)
+
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -14,9 +16,9 @@ class StdDevStrategy(Strategy):
             daily_std = np.std(self.daily_changes[:len(self.data)])
             
             daily_change = self.data.Close[-1] - self.data.Open[-1]
-            if daily_change > daily_avg + 2 * daily_std:
+            if daily_change > daily_avg + 2.5 * daily_std:
                 self.buy()
-            elif daily_change < daily_avg - 2 * daily_std:
+            elif daily_change < daily_avg - 2.5 * daily_std:
                 self.sell()
         else:
             # Handle the case where there is not enough data
