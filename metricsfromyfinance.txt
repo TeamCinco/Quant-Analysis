@@ -1,0 +1,28 @@
+import yfinance as yf
+import pandas as pd
+
+def get_financial_metrics(symbols):
+    unique_metrics = set()
+
+    for symbol in symbols:
+        ticker = yf.Ticker(symbol)
+        financials = ticker.financials
+        if financials.empty:
+            print(f"No financial data available for {symbol}.")
+            continue
+        most_recent_year = financials.columns[0]  # Get the most recent year
+        metrics = financials[most_recent_year].dropna().index.tolist()
+        unique_metrics.update(metrics)
+    
+    return unique_metrics
+
+def main():
+    symbols_input = input("Enter stock symbols separated by commas (e.g., aapl,msft,goog): ").lower().replace(' ', '')
+    symbols = symbols_input.split(',')
+
+    metrics = get_financial_metrics(symbols)
+    for metric in metrics:
+        print(metric)
+
+if __name__ == "__main__":
+    main()
