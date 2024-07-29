@@ -1,0 +1,83 @@
+import yfinance as yf
+import pandas_datareader.data as web
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import StandardScaler
+
+# Function to fetch S&P 500 data
+def fetch_sp500(start_date, end_date):
+    sp500 = yf.download('^GSPC', start=start_date, end=end_date)['Adj Close']
+    return sp500
+
+# Function to fetch FRED data
+def fetch_fred_data(series_id, start_date, end_date):
+    data = web.DataReader(series_id, 'fred', start=start_date, end=end_date)
+    return data
+
+# Function to calculate daily returns
+def calculate_daily_returns(data):
+    returns = data.pct_change().dropna()
+    return returns
+
+# Function to normalize data
+def normalize_data(data):
+    scaler = StandardScaler()
+    normalized_data = scaler.fit_transform(data.values.reshape(-1, 1))
+    return pd.Series(normalized_data.flatten(), index=data.index)
+
+# Function to perform and plot linear regression
+def plot_linear_regression(x, y, x_label, y_label):
+    x = x.values.reshape(-1, 1)
+    y = y.values.reshape(-1, 1)
+    model = LinearRegression()
+    model.fit(x, y)
+    y_pred = model.predict(x)
+    
+    plt.figure(figsize=(10, 6))
+    plt.scatter(x, y, color='blue', label='Data points')
+    plt.plot(x, y_pred, color='red', label='Linear regression line')
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.legend()
+    plt.title(f'Linear Regression: {y_label} vs {x_label}')
+    plt.show()
+
+    print(f'Intercept: {model.intercept_[0]}')
+    print(f'Coefficient: {model.coef_[0][0]}')
+    print(f'R^2 Score: {model.score(x, y)}')
+
+# Main function to fetch data, calculate returns, and plot linear regressions
+def main():
+    start_date = '2023-07-25'
+    end_date = '2024-07-25'
+    
+    # Fetch S&P 500 data
+    sp500 = fetch_sp500(start_date, end_date)
+    sp500_returns = calculate_daily_returns(sp500)
+    sp500_returns_normalized = normalize_data(sp500_returns)
+    
+    # Define macroeconomic indicators
+    indicators = {
+        #'USD Volatility': 'DEXUSEU',  # Example series for USD/EUR exchange rate (proxy for USD volatility)
+        #'AAA Bonds': 'DBAA',
+        'CPI Core': 'CPILFESL',
+        #'Oil': 'DCOILWTICO'
+    }
+    
+    for name, series_id in indicators.items():
+        indicator_data = fetch_fred_data(series_id, start_date, end_date)
+        indicator_returns = calculate_daily_returns(indicator_data)
+        indicator_returns_normalized = normalize_data(indicator_returns)
+        
+        # Align dates
+        combined_data = pd.concat([sp500_returns_normalized, indicator_returns_normalized], axis=1).dropna()
+        sp500_returns_aligned = combined_data.iloc[:, 0]
+        indicator_returns_aligned = combined_data.iloc[:, 1]
+        
+        # Plot linear regression
+        plot_linear_regression(sp500_returns_aligned, indicator_returns_aligned, 'S&P 500 Returns (Normalized)', f'{name} Returns (Normalized)')
+
+if __name__ == "__main__":
+    main()
