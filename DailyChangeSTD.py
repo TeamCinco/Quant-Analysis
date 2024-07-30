@@ -4,8 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import datetime as dt
 import tempfile
-from openpyxl import Workbook
-from openpyxl.utils.dataframe import dataframe_to_rows
+
 
 def save_plot_to_file(plt):
     temp_plot_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
@@ -18,9 +17,6 @@ def calculate_expected_prices(latest_close, expected_change_pct):
     expected_price_negative = latest_close * (1 - expected_change_pct / 100)
     return expected_price_positive, expected_price_negative
 
-def append_df_to_ws(ws, df, include_index=False):
-    for r in dataframe_to_rows(df, index=include_index, header=True):
-        ws.append(r)
 
 ticker_symbol = input("Please enter the ticker symbol: ")
 data = yf.download(ticker_symbol, period='6mo')

@@ -2,9 +2,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from openpyxl import Workbook
-from openpyxl.utils.dataframe import dataframe_to_rows
-from openpyxl.drawing.image import Image
+
 import tempfile
 
 def save_plot_to_file(plt):
@@ -13,9 +11,7 @@ def save_plot_to_file(plt):
     plt.close()
     return temp_plot_file.name
 
-def append_df_to_ws(ws, df, include_index=False):
-    for r in dataframe_to_rows(df, index=include_index, header=True):
-        ws.append(r)
+
 
 def calculate_and_display_quarterly_prices(latest_close, max_change_pct):
     quarter_increments = np.arange(0.25, max_change_pct + 0.25, 0.25)

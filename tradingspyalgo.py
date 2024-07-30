@@ -2,9 +2,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from openpyxl import Workbook
-from openpyxl.utils.dataframe import dataframe_to_rows
-from openpyxl.drawing.image import Image
+
 import tempfile
 
 
@@ -15,9 +13,6 @@ def save_plot_to_file(plt):
     return temp_plot_file.name
 
 # Function to append a DataFrame to an Excel worksheet
-def append_df_to_ws(ws, df, include_index=False):
-    for r in dataframe_to_rows(df, index=include_index, header=True):
-        ws.append(r)
 
 
 # Add this function to your script

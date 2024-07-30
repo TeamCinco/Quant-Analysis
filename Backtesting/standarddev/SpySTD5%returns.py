@@ -1,33 +1,25 @@
+
 import yfinance as yf
 import pandas as pd
 import numpy as np
 from backtesting import Strategy, Backtest
 
-class ImprovedStdDevVolumeStrategy(Strategy):
-    window = 30
-    std_threshold = 1
-    volume_threshold = 0.7
-    stop_loss = 0.025
-    trailing_stop = 0.01
-    max_holding_days = 1
+class ShortTermMacroStrategy(Strategy):
+    window = 5  # Reduced window for short-term focus
+    std_threshold = 1  # Increased threshold for more sensitive signals
+    stop_loss = 0.5  # Tightened stop loss for short-term trading
+    max_holding_days = 62  # Extended max holding period slightly
 
     def init(self):
         self.close = self.data.Close
-        self.volume = self.data.Volume
 
-        # Calculate returns
         self.returns = self.I(self.calculate_returns)
-
-        # Calculate rolling mean and std of returns
         self.returns_mean = self.I(self.calculate_rolling_mean, self.returns, self.window)
         self.returns_std = self.I(self.calculate_rolling_std, self.returns, self.window)
 
-        # Calculate rolling mean of volume
-        self.volume_mean = self.I(self.calculate_rolling_mean, self.volume, self.window)
-
-        # Add trend following
-        self.sma50 = self.I(self.calculate_rolling_mean, self.close, 50)
-        self.sma200 = self.I(self.calculate_rolling_mean, self.close, 200)
+        # Short-term trend indicators
+        self.sma5 = self.I(self.calculate_rolling_mean, self.close, 5)
+        self.sma10 = self.I(self.calculate_rolling_mean, self.close, 10)
 
         self.entry_price = 0
         self.days_held = 0
@@ -44,54 +36,37 @@ class ImprovedStdDevVolumeStrategy(Strategy):
         return pd.Series(array).rolling(window).std().values
 
     def next(self):
-        if len(self.data) < max(self.window, 200):
+        if len(self.data) < max(self.window, 10):
             return
 
         current_return = self.returns[-1]
-        current_volume = self.volume[-1]
         current_price = self.close[-1]
 
-        # Trend following condition
-        uptrend = self.sma50[-1] > self.sma200[-1]
+        # Short-term trend condition
+        uptrend = self.sma5[-1] > self.sma10[-1]
 
-        # Debug print
-        print(f"Date: {self.data.index[-1]}, Price: {current_price:.2f}, Return: {current_return:.4f}, Volume: {current_volume}")
-        print(f"SMA50: {self.sma50[-1]:.2f}, SMA200: {self.sma200[-1]:.2f}, Uptrend: {uptrend}")
+        print(f"Date: {self.data.index[-1]}, Price: {current_price:.2f}, Return: {current_return:.4f}")
+        print(f"SMA5: {self.sma5[-1]:.2f}, SMA10: {self.sma10[-1]:.2f}, Uptrend: {uptrend}")
 
         if not self.position:
-            if (current_return < self.returns_mean[-1] - self.std_threshold * self.returns_std[-1] and
-                current_volume < self.volume_threshold * self.volume_mean[-1] and
-                uptrend):
-                self.buy(size=0.95)  # Use 95% of available cash
+            if (current_return < self.returns_mean[-1] - self.std_threshold * self.returns_std[-1] and uptrend):
+                self.buy(size=0.98)  # Increased position size for short-term focus
                 self.entry_price = current_price
                 self.days_held = 0
                 print(f"BUY signal at {current_price:.2f}")
         else:
             self.days_held += 1
 
-            # Check stop loss
             if current_price < self.entry_price * (1 - self.stop_loss):
                 self.position.close()
                 print(f"SELL signal (stop loss) at {current_price:.2f}")
-
-            # Check trailing stop
-            elif current_price < self.entry_price * (1 - self.trailing_stop):
-                self.position.close()
-                print(f"SELL signal (trailing stop) at {current_price:.2f}")
-
-            # Check max holding period
             elif self.days_held >= self.max_holding_days:
                 self.position.close()
                 print(f"SELL signal (max holding period) at {current_price:.2f}")
-
-            # Check exit conditions
-            elif (current_return > self.returns_mean[-1] + self.std_threshold * self.returns_std[-1] or
-                  current_volume > 1.2 * self.volume_mean[-1] or
-                  not uptrend):
+            elif (current_return > self.returns_mean[-1] + self.std_threshold * self.returns_std[-1] or not uptrend):
                 self.position.close()
                 print(f"SELL signal (exit conditions) at {current_price:.2f}")
 
-            # Update entry price for trailing stop
             if current_price > self.entry_price:
                 self.entry_price = current_price
 
@@ -107,10 +82,10 @@ def calculate_annualized_return(data):
 
 def main():
     ticker = "SPY"
-    start = "2020-01-01"
-    end = "2024-07-25"
+    start = "2024-01-25"  
+    end = "2024-07-26"
     data = fetch_data(ticker, start, end)
-    bt = Backtest(data, ImprovedStdDevVolumeStrategy, cash=10000, commission=.002, exclusive_orders=True)
+    bt = Backtest(data, ShortTermMacroStrategy, cash=10000, commission=.002, exclusive_orders=True)
     stats = bt.run()
     print(stats)
     buy_and_hold_annualized_return = calculate_annualized_return(data)
