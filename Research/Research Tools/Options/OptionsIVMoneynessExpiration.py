@@ -128,7 +128,7 @@ def main():
             data['moneyness'].extend([calculate_moneyness(strike, underlying_price) for strike in options['strike']])
             data['timeToExpire'].extend([calculate_time_to_expire(date)] * len(options))
 
-        print(f"\nPlotting {option_type} Implied Volatility Surface...")
+        print(f"\nPlotting {option_type} optons from 2024 Implied Volatility Surface...")
         plot_implied_volatility_surface(data, f'{ticker} {option_type} Implied Volatility Surface')
 
         # Keep the plot open

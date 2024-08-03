@@ -19,7 +19,7 @@ def calculate_expected_prices(latest_close, expected_change_pct):
 
 
 ticker_symbol = input("Please enter the ticker symbol: ")
-data = yf.download(ticker_symbol, period='6mo')
+data = yf.download(ticker_symbol, period='max')
 
 data['Daily Change %'] = ((data['Close'] - data['Open']) / data['Open']) * 100
 bins = np.arange(-3, 3.5, 0.5).tolist()
@@ -40,7 +40,7 @@ plt.figure(figsize=(12, 8))
 plt.barh(frequency_table['Bins'].astype(str), frequency_table['Qty'], color='blue', edgecolor='black')
 plt.xlabel('Frequency')
 plt.ylabel('Daily Change in %')
-plt.title(f'Daily Change in Percentage from Open to Close, past 6 months - {ticker_symbol}')
+plt.title(f'Daily Change in Percentage from Open to Close, all available data - {ticker_symbol}')
 plt.gca().invert_yaxis()
 plt.grid(axis='x', linestyle='--', alpha=0.7)
 plt.tight_layout()
@@ -62,7 +62,7 @@ stats_df = stats_df.reset_index().rename(columns={'index': 'Statistic'})
 print(stats_df.to_string(index=False, header=False))
 
 # Standard deviation analysis
-data = yf.download(ticker_symbol, period='5Y')
+data = yf.download(ticker_symbol, period='max')
 data['Daily_Price_Difference'] = data['Close'] - data['Open']
 data['Weekly_Price_Difference'] = data['Close'] - data['Open'].shift(4)
 data['Monthly_Price_Difference'] = data['Close'] - data['Open'].shift(19)
