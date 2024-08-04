@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tempfile
 import scipy.stats as stats
-
+from scipy.optimize import minimize_scalar
 
 def save_plot_to_file(plt):
     temp_plot_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
@@ -22,6 +22,39 @@ def calculate_iron_condor_payoff(stock_price, lower_bound, upper_bound, premium_
         return -premium_collected  # Loss is the premium collected
     else:
         return premium_collected  # Reward is the premium collected
+
+def expected_outcome(x, std, current_stock_price, premium_collected, max_loss):
+    lower_bound = current_stock_price - x * std
+    upper_bound = current_stock_price + x * std
+    probability_within_bounds = stats.norm.cdf(upper_bound, current_stock_price, std) - stats.norm.cdf(lower_bound, current_stock_price, std)
+    
+    hit_reward = premium_collected
+    hit_probability = probability_within_bounds
+    miss_outcome = -max_loss
+    miss_probability = 1 - probability_within_bounds
+    
+    return hit_reward * hit_probability + miss_outcome * miss_probability
+
+def expected_outcome_derivative(x, std, current_stock_price, premium_collected, max_loss):
+    lower_bound = current_stock_price - x * std
+    upper_bound = current_stock_price + x * std
+    
+    pdf_lower = stats.norm.pdf(lower_bound, current_stock_price, std)
+    pdf_upper = stats.norm.pdf(upper_bound, current_stock_price, std)
+    
+    return std * (pdf_lower + pdf_upper) * (premium_collected + max_loss)
+
+def optimize_iron_condor(std, current_stock_price, premium_collected, max_loss):
+    result = minimize_scalar(
+        lambda x: -expected_outcome(x, std, current_stock_price, premium_collected, max_loss),
+        bounds=(0, 3),
+        method='bounded'
+    )
+    
+    optimal_x = result.x
+    optimal_outcome = -result.fun
+    
+    return optimal_x, optimal_outcome
 
 ticker_symbol = input("Please enter the ticker symbol: ")
 data = yf.download(ticker_symbol, period='6mo')
@@ -91,38 +124,63 @@ prices_table = pd.DataFrame(prices_data)
 print("Standard Deviations:")
 print(prices_table)
 
-# Calculate the reward*probability + loss*0.32 for iron condor strategy
+# Calculate the optimized iron condor strategy
 iron_condor_results = []
+
+premium_collected = 160  # Assume a fixed premium collected for simplicity
+max_loss = 800  # Maximum loss for the iron condor strategy
 
 for i, (std, label) in enumerate([
     (daily_std, 'Daily'),
     (weekly_std, 'Weekly'),
     (monthly_std, 'Monthly')
 ]):
-    lower_bound = current_stock_price - std
-    upper_bound = current_stock_price + std
+    optimal_x, optimal_outcome = optimize_iron_condor(std, current_stock_price, premium_collected, max_loss)
+    
+    lower_bound = current_stock_price - optimal_x * std
+    upper_bound = current_stock_price + optimal_x * std
     probability_within_bounds = stats.norm.cdf(upper_bound, current_stock_price, std) - stats.norm.cdf(lower_bound, current_stock_price, std)
-    premium_collected = 100  # Assume a fixed premium collected for simplicity
     
-    expected_reward = premium_collected * probability_within_bounds
-    expected_loss = premium_collected * (1 - probability_within_bounds)
-    
-    strategy_value = expected_reward + expected_loss * 0.32
+    derivative_at_optimum = expected_outcome_derivative(optimal_x, std, current_stock_price, premium_collected, max_loss)
     
     iron_condor_results.append({
         'Frequency': label,
+        'Optimal x': optimal_x,
         'Lower Bound': lower_bound,
         'Upper Bound': upper_bound,
         'Probability Within Bounds': probability_within_bounds,
-        'Expected Reward': expected_reward,
-        'Expected Loss': expected_loss,
-        'Strategy Value': strategy_value
+        'Expected Outcome': optimal_outcome,
+        'Derivative at Optimum': derivative_at_optimum
     })
 
 iron_condor_df = pd.DataFrame(iron_condor_results)
 
-print("\nIron Condor Strategy Analysis:")
+print("\nOptimized Iron Condor Strategy Analysis:")
 print(iron_condor_df)
+
+# Plot the expected outcome function for each frequency
+plt.figure(figsize=(12, 8))
+x_values = np.linspace(0, 3, 100)
+
+for i, (std, label) in enumerate([
+    (daily_std, 'Daily'),
+    (weekly_std, 'Weekly'),
+    (monthly_std, 'Monthly')
+]):
+    y_values = [expected_outcome(x, std, current_stock_price, premium_collected, max_loss) for x in x_values]
+    plt.plot(x_values, y_values, label=f'{label}')
+    
+    optimal_x = iron_condor_df.loc[i, 'Optimal x']
+    optimal_outcome = iron_condor_df.loc[i, 'Expected Outcome']
+    plt.plot(optimal_x, optimal_outcome, 'ro')
+    plt.annotate(f'Optimal x: {optimal_x:.2f}', (optimal_x, optimal_outcome), textcoords="offset points", xytext=(0,10), ha='center')
+
+plt.title('Expected Outcome of Iron Condor Strategy')
+plt.xlabel('x (Number of Standard Deviations)')
+plt.ylabel('Expected Outcome')
+plt.legend()
+plt.grid(True)
+plt.show()
 
 # Create 'Daily_Price_Difference', 'Weekly_Price_Difference', 'Monthly_Price_Difference' columns in 6-month data
 data['Daily_Price_Difference'] = data['Close'] - data['Open']
@@ -179,3 +237,4 @@ for i, (changes, std, label) in enumerate([
     
     plt.legend()
     plt.show()
+    

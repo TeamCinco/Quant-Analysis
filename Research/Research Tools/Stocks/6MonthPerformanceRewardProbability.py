@@ -17,14 +17,9 @@ def calculate_expected_prices(latest_close, expected_change_pct):
     expected_price_negative = latest_close * (1 - expected_change_pct / 100)
     return expected_price_positive, expected_price_negative
 
-def calculate_iron_condor_payoff(stock_price, lower_bound, upper_bound, premium_collected):
-    if stock_price < lower_bound or stock_price > upper_bound:
-        return -premium_collected  # Loss is the premium collected
-    else:
-        return premium_collected  # Reward is the premium collected
 
 ticker_symbol = input("Please enter the ticker symbol: ")
-data = yf.download(ticker_symbol, period='6mo')
+data = yf.download(ticker_symbol, period='max')
 
 data['Daily Change %'] = ((data['Close'] - data['Open']) / data['Open']) * 100
 bins = np.arange(-3, 3.5, 0.5).tolist()
@@ -45,7 +40,7 @@ plt.figure(figsize=(12, 8))
 plt.barh(frequency_table['Bins'].astype(str), frequency_table['Qty'], color='blue', edgecolor='black')
 plt.xlabel('Frequency')
 plt.ylabel('Daily Change in %')
-plt.title(f'Daily Change in Percentage from Open to Close, past 6 months - {ticker_symbol}')
+plt.title(f'Daily Change in Percentage from Open to Close, all available data - {ticker_symbol}')
 plt.gca().invert_yaxis()
 plt.grid(axis='x', linestyle='--', alpha=0.7)
 plt.tight_layout()
@@ -66,15 +61,15 @@ stats_df = stats_df.reset_index().rename(columns={'index': 'Statistic'})
 
 print(stats_df.to_string(index=False, header=False))
 
-# Standard deviation analysis for last 5 years to get std deviations
-long_term_data = yf.download(ticker_symbol, period='5y')
-long_term_data['Daily_Price_Difference'] = long_term_data['Close'] - long_term_data['Open']
-long_term_data['Weekly_Price_Difference'] = long_term_data['Close'] - long_term_data['Open'].shift(4)
-long_term_data['Monthly_Price_Difference'] = long_term_data['Close'] - long_term_data['Open'].shift(19)
+# Standard deviation analysis
+data = yf.download(ticker_symbol, period='max')
+data['Daily_Price_Difference'] = data['Close'] - data['Open']
+data['Weekly_Price_Difference'] = data['Close'] - data['Open'].shift(4)
+data['Monthly_Price_Difference'] = data['Close'] - data['Open'].shift(19)
 
-daily_std = np.std(long_term_data['Daily_Price_Difference'])
-weekly_std = np.std(long_term_data['Weekly_Price_Difference'].dropna())
-monthly_std = np.std(long_term_data['Monthly_Price_Difference'].dropna())
+daily_std = np.std(data['Daily_Price_Difference'])
+weekly_std = np.std(data['Weekly_Price_Difference'].dropna())
+monthly_std = np.std(data['Monthly_Price_Difference'].dropna())
 
 current_stock_price = data['Close'].iloc[-1]
 prices_data = {
@@ -91,46 +86,8 @@ prices_table = pd.DataFrame(prices_data)
 print("Standard Deviations:")
 print(prices_table)
 
-# Calculate the reward*probability + loss*0.32 for iron condor strategy
-iron_condor_results = []
-
-for i, (std, label) in enumerate([
-    (daily_std, 'Daily'),
-    (weekly_std, 'Weekly'),
-    (monthly_std, 'Monthly')
-]):
-    lower_bound = current_stock_price - std
-    upper_bound = current_stock_price + std
-    probability_within_bounds = stats.norm.cdf(upper_bound, current_stock_price, std) - stats.norm.cdf(lower_bound, current_stock_price, std)
-    premium_collected = 100  # Assume a fixed premium collected for simplicity
-    
-    expected_reward = premium_collected * probability_within_bounds
-    expected_loss = premium_collected * (1 - probability_within_bounds)
-    
-    strategy_value = expected_reward + expected_loss * 0.32
-    
-    iron_condor_results.append({
-        'Frequency': label,
-        'Lower Bound': lower_bound,
-        'Upper Bound': upper_bound,
-        'Probability Within Bounds': probability_within_bounds,
-        'Expected Reward': expected_reward,
-        'Expected Loss': expected_loss,
-        'Strategy Value': strategy_value
-    })
-
-iron_condor_df = pd.DataFrame(iron_condor_results)
-
-print("\nIron Condor Strategy Analysis:")
-print(iron_condor_df)
-
-# Create 'Daily_Price_Difference', 'Weekly_Price_Difference', 'Monthly_Price_Difference' columns in 6-month data
-data['Daily_Price_Difference'] = data['Close'] - data['Open']
-data['Weekly_Price_Difference'] = data['Close'] - data['Open'].shift(4)
-data['Monthly_Price_Difference'] = data['Close'] - data['Open'].shift(19)
-
 plt.figure(figsize=(8, 6))
-plt.hist(data['Daily_Price_Difference'].dropna(), bins=30, color='blue', alpha=0.4, label='Daily', density=True)
+plt.hist(data['Daily_Price_Difference'], bins=30, color='blue', alpha=0.4, label='Daily', density=True)
 plt.hist(data['Weekly_Price_Difference'].dropna(), bins=30, color='green', alpha=0.4, label='Weekly', density=True)
 plt.hist(data['Monthly_Price_Difference'].dropna(), bins=30, color='red', alpha=0.4, label='Monthly', density=True)
 plt.title(f'{ticker_symbol} Price Difference Histograms')
@@ -147,7 +104,7 @@ for i, (changes, std, label) in enumerate([
 ]):
     mean_change = changes.mean()
     plt.figure(figsize=(10, 6))
-    hist_data = plt.hist(changes.dropna(), bins=30, color='blue', alpha=0.5, density=True, label=f'{label} Price Difference')
+    hist_data = plt.hist(changes, bins=30, color='blue', alpha=0.5, density=True, label=f'{label} Price Difference')
     xmin, xmax = plt.xlim()
     x = np.linspace(xmin, xmax, 100)
     p = stats.norm.pdf(x, mean_change, std)

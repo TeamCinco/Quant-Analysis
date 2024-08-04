@@ -1,3 +1,7 @@
+#Shivors edited this one for my use. He helped fix the code so i can input my profit/ loss.
+
+
+
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -17,6 +21,11 @@ def calculate_expected_prices(latest_close, expected_change_pct):
     expected_price_negative = latest_close * (1 - expected_change_pct / 100)
     return expected_price_positive, expected_price_negative
 
+def calculate_iron_condor_payoff(stock_price, lower_bound, upper_bound, premium_collected):
+    if stock_price < lower_bound or stock_price > upper_bound:
+        return -premium_collected  # Loss is the premium collected
+    else:
+        return premium_collected  # Reward is the premium collected
 
 ticker_symbol = input("Please enter the ticker symbol: ")
 data = yf.download(ticker_symbol, period='max')
@@ -85,6 +94,41 @@ prices_table = pd.DataFrame(prices_data)
 
 print("Standard Deviations:")
 print(prices_table)
+
+# Calculate the reward*probability + loss*0.32 for iron condor strategy
+iron_condor_results = []
+
+for i, (std, label) in enumerate([
+    (daily_std, 'Daily'),
+    (weekly_std, 'Weekly'),
+    (monthly_std, 'Monthly')
+]):
+    lower_bound = current_stock_price - std
+    upper_bound = current_stock_price + std
+    probability_within_bounds = stats.norm.cdf(upper_bound, current_stock_price, std) - stats.norm.cdf(lower_bound, current_stock_price, std)
+    
+    principal = 200
+    premium_collected = 160  # Assume a fixed premium collected for simplicity
+    
+    expected_outcome_hit = (principal + premium_collected) * probability_within_bounds
+    expected_outcome_miss = -800 * (1 - probability_within_bounds)
+    
+    expected_outcome = expected_outcome_hit + expected_outcome_miss
+    
+    iron_condor_results.append({
+        'Frequency': label,
+        'Lower Bound': lower_bound,
+        'Upper Bound': upper_bound,
+        'Probability Within Bounds': probability_within_bounds,
+        'Expected outcome (hit)': expected_outcome_hit,
+        'Expected outcome (miss)': expected_outcome_miss,
+        'Expected outcome (all)': expected_outcome
+    })
+
+iron_condor_df = pd.DataFrame(iron_condor_results)
+
+print("\nIron Condor Strategy Analysis:")
+print(iron_condor_df)
 
 plt.figure(figsize=(8, 6))
 plt.hist(data['Daily_Price_Difference'], bins=30, color='blue', alpha=0.4, label='Daily', density=True)
