@@ -1,0 +1,51 @@
+import yfinance as yf
+import pandas as pd
+
+def get_stock_data(ticker, start_date, end_date):
+    stock_data = yf.download(ticker, start=start_date, end=end_date)
+    return stock_data
+
+def calculate_sma(data, window):
+    sma = data['Close'].rolling(window=window).mean()
+    return sma
+
+def determine_strategy(data, sma_window, std_threshold, stop_loss, max_holding_days):
+    data['SMA'] = calculate_sma(data, sma_window)
+    data['STD'] = data['Close'].rolling(window=sma_window).std()
+    data['Upper_Band'] = data['SMA'] + (std_threshold * data['STD'])
+    data['Lower_Band'] = data['SMA'] - (std_threshold * data['STD'])
+
+    strategy = []
+    for i in range(len(data)):
+        if i >= sma_window:
+            if data['Close'][i] > data['Upper_Band'][i]:
+                strategy.append('Bullish')
+            elif data['Close'][i] < data['Lower_Band'][i]:
+                strategy.append('Bearish')
+            else:
+                strategy.append('Neutral')
+        else:
+            strategy.append('Not enough data')
+
+    data['Strategy'] = strategy
+
+    return data
+
+def main():
+    ticker = input("Enter the stock ticker: ")
+    sma_window = int(input("Enter the SMA window: "))
+    std_threshold = float(input("Enter the standard deviation threshold: "))
+    stop_loss = float(input("Enter the stop loss percentage: "))
+    max_holding_days = int(input("Enter the maximum holding days: "))
+
+    # Hardcoded date range
+    start_date = '2023-01-01'
+    end_date = '2023-12-31'
+
+    stock_data = get_stock_data(ticker, start_date, end_date)
+    strategy_data = determine_strategy(stock_data, sma_window, std_threshold, stop_loss, max_holding_days)
+
+    print(strategy_data[['Close', 'SMA', 'Upper_Band', 'Lower_Band', 'Strategy']])
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,33 @@
+import yfinance as yf
+import pandas as pd
+from datetime import datetime
+
+def get_closing_price(ticker: str, date: str) -> float:
+    """
+    Fetch the closing price for a given ticker symbol on a specified date.
+
+    :param ticker: The ticker symbol of the stock.
+    :param date: The date in 'YYYY-MM-DD' format.
+    :return: The closing price of the stock on the given date.
+    """
+    # Convert date string to datetime object
+    date_obj = datetime.strptime(date, '%Y-%m-%d')
+    
+    # Fetch data for the specified ticker
+    stock_data = yf.download(ticker, start=date, end=date_obj + pd.Timedelta(days=1))
+    
+    # Check if data is available for the date
+    if date in stock_data.index:
+        closing_price = stock_data.loc[date]['Close']
+        return closing_price
+    else:
+        raise ValueError("No data available for the given date.")
+
+if __name__ == "__main__":
+    ticker = input("Enter the ticker symbol: ")
+    date = input("Enter the date (YYYY-MM-DD): ")
+    try:
+        price = get_closing_price(ticker, date)
+        print(f"The closing price of {ticker} on {date} was ${price:.2f}")
+    except Exception as e:
+        print(e)
